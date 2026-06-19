@@ -172,7 +172,7 @@ export default function Home() {
               <div className="relative text-center space-y-4 mb-10">
                 <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-3 py-1 text-violet-400 text-xs font-medium mb-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                  Powered by Claude Opus
+                  Powered by Gemini 2.0 Flash
                 </div>
                 <h1 className="text-5xl font-bold tracking-tight">
                   <span className="text-white">Describe it.</span>

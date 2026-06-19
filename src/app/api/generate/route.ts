@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: Request) {
   const { description, existingCode } = await req.json();
@@ -20,38 +20,31 @@ You MUST respond with ONLY a JSON object in this exact format (no markdown, no e
 
 Rules:
 - Generate complete, working code — no placeholders or TODOs
-- For web apps: output HTML, CSS, JS in separate files or a single self-contained HTML file
-- For React apps: use modern React with hooks
+- For web apps: output a single self-contained HTML file with embedded CSS and JS
 - Include all necessary code so the app works standalone
-- Make the UI beautiful with modern styling (use Tailwind CSS inline styles or embedded CSS)
-- The first file should always be the main entry point (index.html or App.tsx etc.)`;
+- Make the UI beautiful with modern styling (embedded CSS)
+- The first file should always be the main entry point (index.html)`;
 
   const userMessage = existingCode
     ? `Update this app based on this request: ${description}\n\nExisting code:\n${existingCode}`
     : `Build me this app: ${description}`;
 
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    systemInstruction: systemPrompt,
+  });
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const response = await client.messages.create({
-          model: "claude-opus-4-8",
-          max_tokens: 16000,
-          thinking: { type: "adaptive" },
-          system: systemPrompt,
-          messages: [{ role: "user", content: userMessage }],
-          stream: true,
-        });
+        const result = await model.generateContentStream(userMessage);
 
-        for await (const event of response) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          if (text) {
             controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ text: event.delta.text })}\n\n`
-              )
+              encoder.encode(`data: ${JSON.stringify({ text })}\n\n`)
             );
           }
         }
@@ -60,9 +53,7 @@ Rules:
         controller.close();
       } catch (err) {
         controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ error: String(err) })}\n\n`
-          )
+          encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`)
         );
         controller.close();
       }
