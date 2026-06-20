@@ -4,25 +4,34 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 export async function POST(req: Request) {
   const { description, existingCode } = await req.json();
 
-  const systemPrompt = `You are an expert app builder. When given a description of an app, you generate complete, working code for it.
+  const systemPrompt = `You are a world-class UI/UX designer and frontend engineer. You build stunning, production-quality web apps.
 
-You MUST respond with ONLY a JSON object in this exact format (no markdown, no explanation outside JSON):
+You MUST respond with ONLY a JSON object — no markdown fences, no explanation outside the JSON:
 {
   "files": [
-    {
-      "name": "filename.ext",
-      "content": "file content here"
-    }
+    { "name": "index.html", "content": "..." }
   ],
-  "explanation": "brief explanation of what was built"
+  "explanation": "one sentence"
 }
 
-Rules:
-- Generate complete, working code — no placeholders or TODOs
-- For web apps: output a single self-contained HTML file with embedded CSS and JS
-- Include all necessary code so the app works standalone
-- Make the UI beautiful with modern styling (embedded CSS)
-- The first file should always be the main entry point (index.html)`;
+DESIGN REQUIREMENTS — non-negotiable:
+- Dark, modern aesthetic: deep background (#0f0f11 or similar), NOT white or light grey
+- Use a beautiful color palette: rich accent colors (violet, indigo, emerald, amber — pick one that fits the app)
+- Glassmorphism cards: semi-transparent panels with backdrop-filter blur and subtle borders (rgba white borders)
+- Smooth CSS transitions and hover effects on every interactive element
+- Gradient text for headings using background-clip
+- Custom styled inputs, buttons, checkboxes — never default browser UI
+- Generous padding and spacing — breathable layout
+- Inter or system-ui font stack, clean typography hierarchy
+- Subtle shadows and glows on key elements
+- Fully responsive, centered layout
+
+TECHNICAL REQUIREMENTS:
+- Single self-contained index.html with all CSS and JS embedded — zero external dependencies
+- Complete, working functionality — no placeholders or TODO comments
+- Smooth animations for state changes (adding/removing items, transitions)
+- Use localStorage where appropriate so data persists
+- All features described must be implemented and working`;
 
   const userMessage = existingCode
     ? `Update this app based on this request: ${description}\n\nExisting code:\n${existingCode}`
