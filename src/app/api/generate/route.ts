@@ -1,5 +1,7 @@
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Tried in order. 70B gives the best output; on rate-limit we fall back to the
+// 8B model, which has a much higher free-tier tokens-per-minute allowance.
+const GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
 
 export async function POST(req: Request) {
   const { description, existingCode } = await req.json();
@@ -41,28 +43,43 @@ TECHNICAL REQUIREMENTS:
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const res = await fetch(GROQ_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: GROQ_MODEL,
-            stream: true,
-            temperature: 0.7,
-            max_tokens: 8000,
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userMessage },
-            ],
-          }),
-        });
+        let res: Response | null = null;
+        let lastErr = "";
 
-        if (!res.ok || !res.body) {
-          const detail = await res.text().catch(() => "");
-          throw new Error(`Groq API error (${res.status}): ${detail}`);
+        // Try each model in turn; on a 429 (rate limit) fall through to the next.
+        for (const model of GROQ_MODELS) {
+          const attempt = await fetch(GROQ_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model,
+              stream: true,
+              temperature: 0.7,
+              max_tokens: 6000,
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userMessage },
+              ],
+            }),
+          });
+
+          if (attempt.ok && attempt.body) {
+            res = attempt;
+            break;
+          }
+
+          const detail = await attempt.text().catch(() => "");
+          lastErr = `Groq API error (${attempt.status}): ${detail}`;
+          // Only fall back on rate limits; other errors are not retryable.
+          if (attempt.status !== 429) break;
+        }
+
+        if (!res || !res.body) {
+          throw new Error(lastErr || "Groq request failed");
         }
 
         const reader = res.body.getReader();
