@@ -66,17 +66,29 @@ export default function Home() {
             const parsed = JSON.parse(data);
             if (parsed.error) throw new Error(parsed.error);
             if (parsed.text) { accumulated += parsed.text; setStreamText(accumulated); }
-          } catch { /* ignore partial chunks */ }
+          } catch { /* ignore partial chunk parse errors */ }
         }
       }
 
-      const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
+      // Strip markdown code fences if Gemini wraps output in ```json ... ```
+      const cleaned = accumulated
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        setFiles(result.files ?? []);
-        setActiveFile(result.files?.[0]?.name ?? "");
-        setHistory((h) => [desc, ...h.slice(0, 9)]);
-        setActiveTab("preview");
+        try {
+          const result = JSON.parse(jsonMatch[0]);
+          setFiles(result.files ?? []);
+          setActiveFile(result.files?.[0]?.name ?? "");
+          setHistory((h) => [desc, ...h.slice(0, 9)]);
+          setActiveTab("preview");
+        } catch {
+          setError("Failed to parse response. Try again.");
+        }
+      } else {
+        setError("No code was generated. Try a more specific description.");
       }
     } catch (e) {
       setError(String(e));
