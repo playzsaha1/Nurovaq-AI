@@ -53,6 +53,7 @@ export default function Home() {
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
+      let apiError = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -64,10 +65,15 @@ export default function Home() {
           if (data === "[DONE]") break;
           try {
             const parsed = JSON.parse(data);
-            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.error) { apiError = parsed.error; continue; }
             if (parsed.text) { accumulated += parsed.text; setStreamText(accumulated); }
           } catch { /* ignore partial chunk parse errors */ }
         }
+      }
+
+      if (apiError) {
+        setError(apiError);
+        return;
       }
 
       // Strip markdown code fences if Gemini wraps output in ```json ... ```
